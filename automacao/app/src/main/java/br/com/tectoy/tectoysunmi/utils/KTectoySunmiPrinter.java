@@ -15,7 +15,6 @@ public class KTectoySunmiPrinter extends AppCompatActivity {
 
     public static int NoSunmiPrinter = 0x00000000;
     public static int CheckSunmiPrinter = 0x00000001;
-    public static int FoundSunmiPrinter = 0x00000002;
     public static int LostSunmiPrinter = 0x00000003;
     private Context context;
     private static final String TAG = "KPrinterPresenter";
@@ -48,7 +47,7 @@ public class KTectoySunmiPrinter extends AppCompatActivity {
     public static int HALF_CUTTING = 1;
     public static int CUTTING_PAPER_FEED = 2;
 
-
+    public static int FoundSunmiPrinter = 0x00000002;
     public int sunmiPrinter = CheckSunmiPrinter;
     private SunmiPrinterService sunmiPrinterService;
     private ExtPrinterService extPrinterService = null;

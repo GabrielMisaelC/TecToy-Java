@@ -4,15 +4,24 @@ import static br.com.tectoy.tectoysunmi.R.drawable.test;
 import static br.com.tectoy.tectoysunmi.R.drawable.test1;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.app.Presentation;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.media.MediaRouter;
 import android.os.Build;
@@ -41,12 +50,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.sunmi.extprinterservice.ExtPrinterService;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 import br.com.tectoy.tectoysunmi.R;
 import br.com.tectoy.tectoysunmi.activity.ExemploNFCIdRW.NfcExemplo;
 import br.com.tectoy.tectoysunmi.threadhelp.ThreadPoolManageer;
+import br.com.tectoy.tectoysunmi.utils.ESCUtil;
 import br.com.tectoy.tectoysunmi.utils.KTectoySunmiPrinter;
 import br.com.tectoy.tectoysunmi.utils.TectoySunmiPrint;
 import sunmi.sunmiui.dialog.DialogCreater;
@@ -57,11 +68,21 @@ public class MainActivity extends AppCompatActivity {
     int height= 0;
     HintOneBtnDialog mHintOneBtnDialog;
     boolean run;
+    String alert = "Função Não Disponivel No Device";
     public static boolean isK1 = false;
     public static boolean isVertical = false;
     private ExtPrinterService extPrinterService = null;
     public static KTectoySunmiPrinter kPrinterPresenter;
-
+    private static final String LOG_TAG = "USB_TEST_ARDUINO";
+    private static final String LOG_Send_Print = "Send_Command_USB_Send";
+    private static final String LOG_Send = "Send_Command_USB";
+    private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
+    private PendingIntent mPermissionIntent;
+    private UsbDevice mDevice;
+    private UsbManager usbManager;
+    private UsbEndpoint usbEndpointOut = null;
+    private UsbEndpoint usbEndpointIn = null;
+    private UsbDeviceConnection connection = null;
 
 
         private final DemoDetails[] demos = {
@@ -112,6 +133,13 @@ public class MainActivity extends AppCompatActivity {
         height = dm.heightPixels;// Largura da tela
         isVertical = height > width;
         isK1 = isHaveCamera() && isVertical;
+        usbManager = (UsbManager) this.getSystemService(Context.USB_SERVICE);
+        // Faz a validação de Permissão para acessar a porta USB
+
+        mPermissionIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, new Intent(ACTION_USB_PERMISSION), 0);
+
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        registerReceiver(usbReceiver, filter);
         String deviceName = getDeviceName();
         if (isK1 = true && height > 1856){
             connectKPrintService();
@@ -216,7 +244,18 @@ public class MainActivity extends AppCompatActivity {
             holder.tv.setText(demos[position].titleId);
             holder.tv.setCompoundDrawablesWithIntrinsicBounds(null, getDrawable(demos[position].iconResID), null, null);
         }
-
+        public void alerta(String alerta){
+            AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+            alertDialog.setTitle("Atenção");
+            alertDialog.setMessage(alerta);
+            alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+            alertDialog.show();
+        }
         @Override
         public int getItemCount() {
             return demos.length;
@@ -242,12 +281,7 @@ public class MainActivity extends AppCompatActivity {
                         if(demoDetails.titleId == R.string.function_all){
                             Log.d("Nome", getDeviceName());
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2H")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 if (isK1 = true && height > 1856) {
                                     try {
@@ -256,8 +290,13 @@ public class MainActivity extends AppCompatActivity {
                                         e.printStackTrace();
                                     }
                                 } else {
-                                    TesteCompleto();
-
+                                    String result = TectoySunmiPrint.getInstance().statusPrinter(MainActivity.this);
+                                    if (result.equals("Impressora não existe")) {
+                                        connect_impressora();
+                                        EscTesteCompleto();
+                                    }else{
+                                        TesteCompleto();
+                                    }
                                 }
                             }
                         }
@@ -265,10 +304,7 @@ public class MainActivity extends AppCompatActivity {
                             if(getDeviceName().equals("SUNMI T2s") || getDeviceName().equals("SUNMI K2") || getDeviceName().equals("SUNMI K2_MINI") || getDeviceName().equals("SUNMI T2mini")){
                                 if (isK1 = true && height > 1856) {
                                     try {
-                                        kPrinterPresenter.print3Line();
-                                        kPrinterPresenter.cutpaper(KTectoySunmiPrinter.FULL_CUTTING, 10);
-                                        kPrinterPresenter.print3Line();
-                                        kPrinterPresenter.cutpaper(KTectoySunmiPrinter.HALF_CUTTING, 10);
+
                                         kPrinterPresenter.print3Line();
                                         kPrinterPresenter.cutpaper(KTectoySunmiPrinter.CUTTING_PAPER_FEED, 10);
                                     } catch (Exception e) {
@@ -278,21 +314,12 @@ public class MainActivity extends AppCompatActivity {
                                     TectoySunmiPrint.getInstance().cutpaper();
                                 }
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }
                         }
                         if(demoDetails.titleId == R.string.function_threeline){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 if (isK1 = true && height > 1856) {
                                     try {
@@ -309,12 +336,7 @@ public class MainActivity extends AppCompatActivity {
                             if(getDeviceName().equals("SUNMI D2s") || getDeviceName().equals("SUNMI T2mini")){
                                 TectoySunmiPrint.getInstance().openCashBox();
                             }else {
-                                                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println(getDeviceName().toString());
+                                alerta(alert);
                             }
                             }
 
@@ -348,11 +370,7 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, LedActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }
                         }
                         if (demoDetails.titleId == R.string.display){
@@ -360,11 +378,7 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, DisplayActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }
                         }
                         if(demoDetails.titleId == R.string.function_scan){
@@ -372,11 +386,7 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, ScanActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }
                         }
                         if(demoDetails.titleId == R.string.function_lcd){
@@ -384,11 +394,7 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, LcdActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }
                         }
                         if(demoDetails.titleId == R.string.function_blackline){
@@ -396,11 +402,7 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, BlackLabelActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta("Função Disponivel No Device V2 Pro");
                             }
                         }
                         if (demoDetails.titleId == R.string.function_label){
@@ -408,20 +410,12 @@ public class MainActivity extends AppCompatActivity {
                                 Intent intent = new Intent(MainActivity.this, LabelActivity.class);
                                 startActivity(intent);
                             }else {
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta("Função Disponivel No Device V2 Pro");
                             }
                         }
                         if (demoDetails.titleId == R.string.function_scanner){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, ScannerActivity.class);
                                 startActivity(intent);
@@ -429,12 +423,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         if (demoDetails.titleId == R.string.function_barcode){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, BarCodeActivity.class);
                                 startActivity(intent);
@@ -442,12 +431,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         if (demoDetails.titleId == R.string.function_qrcode){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini") || getDeviceName().equals("SUNMI D2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, QrActivity.class);
                                 startActivity(intent);
@@ -455,12 +439,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         if (demoDetails.titleId == R.string.function_text){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, TextActivity.class);
                                 startActivity(intent);
@@ -468,12 +447,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         if (demoDetails.titleId == R.string.function_tab){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, TableActivity.class);
                                 startActivity(intent);
@@ -481,12 +455,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         if (demoDetails.titleId == R.string.function_pic){
                             if(getDeviceName().equals("SUNMI L2") || getDeviceName().equals("SUNMI D2mini") || getDeviceName().equals("SUNMI L2K") || getDeviceName().equals("SUNMI L2H") || getDeviceName().equals("SUNMI P2mini")){
-                                Context context = getApplicationContext();
-                                CharSequence text = "Função Não Disponivel No Device";
-                                int duration = Toast.LENGTH_SHORT;
-                                Toast toast = Toast.makeText(context, text, duration);
-                                toast.show();
-                                System.out.println("Passo Aqui");
+                                alerta(alert);
                             }else {
                                 Intent intent = new Intent(MainActivity.this, BitmapActivity.class);
                                 startActivity(intent);
@@ -547,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
         // Barcode
 
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
-        kPrinterPresenter.text("BarCode\n");
+        kPrinterPresenter.text("Imprime BarCode\n");
         kPrinterPresenter.text("--------------------------------\n");
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_LEFT);
         kPrinterPresenter.printBarcode("7891098010575", 2, 162, 2, 0);
@@ -561,21 +530,24 @@ public class MainActivity extends AppCompatActivity {
         // QrCode
 
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
-        kPrinterPresenter.text("QrCode\n");
+        kPrinterPresenter.text("Imprime QrCode\n");
         kPrinterPresenter.text("--------------------------------\n");
-        kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
-        kPrinterPresenter.printQr("www.tectoyautomacao.com.br", 8, 0);
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_LEFT);
         kPrinterPresenter.printQr("www.tectoyautomacao.com.br", 8, 0);
+        kPrinterPresenter.print3Line();
+        kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
+        kPrinterPresenter.printQr("www.tectoyautomacao.com.br", 8, 0);
+        kPrinterPresenter.print3Line();
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_RIGTH);
         kPrinterPresenter.printQr("www.tectoyautomacao.com.br", 8, 0);
+        kPrinterPresenter.print3Line();
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_LEFT);
         kPrinterPresenter.printDoubleQRCode("www.tectoyautomacao.com.br","tectoy", 7, 1);
         // Imagem
 
 
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
-        kPrinterPresenter.text("Imagem\n");
+        kPrinterPresenter.text("Imprime Imagem\n");
         kPrinterPresenter.text("--------------------------------\n");
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inTargetDensity = 160;
@@ -594,7 +566,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         kPrinterPresenter.setAlign(kPrinterPresenter.Alignment_CENTER);
-        kPrinterPresenter.text("Tabelas\n");
+        kPrinterPresenter.text("Imprime Tabelas\n");
         kPrinterPresenter.text("--------------------------------\n");
         String[] prod = new String[3];
         int[] width = new int[3];
@@ -647,6 +619,49 @@ public class MainActivity extends AppCompatActivity {
 
     }
     // Teste Completo dos Demais Devices
+    public void EscTesteCompleto() {
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint("Teste de Alinhamento\n".getBytes());
+        sendcommadPrint("------------------------\n\n".getBytes());
+        sendcommadPrint(ESCUtil.feedPaper(1));
+
+        sendcommadPrint(ESCUtil.alignLeft());
+        sendcommadPrint("TecToy Automação\n".getBytes());
+
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint("TecToy Automação\n".getBytes());
+
+        sendcommadPrint(ESCUtil.alignRight());
+        sendcommadPrint("TecToy Automação\n".getBytes());
+        sendcommadPrint(ESCUtil.alignLeft());
+
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint("Formas de Impressão\n".getBytes());
+        sendcommadPrint("------------------------\n\n".getBytes());
+        sendcommadPrint(ESCUtil.feedPaper(1));
+
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint("Imprime Barcode\n".getBytes());
+        sendcommadPrint("------------------------\n\n".getBytes());
+        sendcommadPrint(ESCUtil.feedPaper(1));
+
+        sendcommadPrint("Formas de QrCode\n".getBytes());
+        sendcommadPrint("------------------------\n\n".getBytes());
+        sendcommadPrint(ESCUtil.feedPaper(1));
+        sendcommadPrint(ESCUtil.alignLeft());
+        sendcommadPrint(ESCUtil.getPrintQRCode("7894900700046", 300, 2));
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint(ESCUtil.getPrintQRCode("7894900700046", 162, 2));
+        sendcommadPrint(ESCUtil.alignRight());
+        sendcommadPrint(ESCUtil.getPrintQRCode("7894900700046", 162, 2));
+        sendcommadPrint(ESCUtil.alignLeft());
+        sendcommadPrint(ESCUtil.getPrintDoubleQRCode("7894900700046","7894900700046",162,2));
+
+        sendcommadPrint(ESCUtil.alignCenter());
+        sendcommadPrint("Imprime Tabela\n".getBytes());
+        sendcommadPrint("------------------------\n\n".getBytes());
+        sendcommadPrint(ESCUtil.feedPaper(1));
+    }
     public void TesteCompleto() {
 
 
@@ -874,4 +889,95 @@ public class MainActivity extends AppCompatActivity {
             this.activityClass = activityClass;
         }
     }
+    // Impressão Via USB
+    public void connect_impressora(){
+        for(UsbDevice device : usbManager.getDeviceList().values()) {
+
+            if(device.getProductId() == 4864){
+                //Log.d(LOG_TAG, "-----------------Conectando Impressora-------------------------");
+                mDevice = device;
+                usbManager.requestPermission(mDevice, mPermissionIntent);
+                connection = usbManager.openDevice(mDevice);
+
+                UsbInterface mUsbInterface = findHidInterface();
+                try {
+                    connection.claimInterface(mUsbInterface, true);
+                    for (int i = 0; i < mUsbInterface.getEndpointCount(); i++) {
+                        UsbEndpoint usbEndpoint = mUsbInterface.getEndpoint(i);
+
+                        // Log.d(LOG_TAG, String.valueOf(usbEndpoint.getType()));
+                        // Log.d(LOG_TAG, String.valueOf(usbEndpoint.getDirection()));
+
+                        if (usbEndpoint.getType() == UsbConstants.USB_CLASS_COMM) {
+                            if (usbEndpoint.getDirection() == UsbConstants.USB_DIR_OUT) {
+                                usbEndpointOut = usbEndpoint;
+                            } else {
+                                usbEndpointIn = usbEndpoint;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            }
+        }
+    }
+
+    private UsbInterface findHidInterface() {
+        if (mDevice != null) {
+            final int interfaceCount = mDevice.getInterfaceCount();
+
+            for (int interfaceIndex = 0; interfaceIndex < interfaceCount; interfaceIndex++) {
+                UsbInterface usbInterface = mDevice.getInterface(interfaceIndex);
+                return usbInterface;
+            }
+            Log.w(LOG_TAG, "HID interface not found.");
+        }
+        return null;
+    }
+
+    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            Log.d(LOG_TAG, action);
+            if (ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbDevice device = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if (device != null) {
+                            //  Toast.makeText(MainActivity.this, "Dispositivo permitido", Toast.LENGTH_LONG).show();
+                        }
+                    } else {
+                        //  Toast.makeText(MainActivity.this, "Dispositivo não permitido.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+        }
+    };
+
+    public int sendcommadPrint(byte[] command){
+
+        int ret = connection.bulkTransfer(usbEndpointOut, command, 0, command.length, 1000);
+        Log.d(LOG_Send_Print, String.valueOf(ret));
+        return ret;
+    }
+    public void outputCommand(){
+        connection.close();
+    }
+
+    public static String customData(){
+
+        String pulaLinha = "\n";
+
+        for(int i = 0; i < 10; i++ ){
+            pulaLinha += "\n";
+            Log.i(LOG_TAG, String.valueOf(i));
+        }
+
+        return  pulaLinha;
+    }
+
 }

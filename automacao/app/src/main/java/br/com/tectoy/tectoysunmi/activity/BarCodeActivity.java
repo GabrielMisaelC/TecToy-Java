@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.TextUtils;
@@ -64,7 +65,7 @@ public class BarCodeActivity extends BaseActivity {
         isVertical = height > width;
         isK1 = isHaveCamera() && isVertical;
 
-        if (isK1 = true && height > 1856){
+        if (getDeviceName().equals("SUNMI K2")){
             connectKPrintService();
         }
         encode = 8;
@@ -183,7 +184,7 @@ public class BarCodeActivity extends BaseActivity {
         int width = Integer.parseInt(mTextView4.getText().toString());
 
         if (mTextView6.getText().toString() == "Não") {
-            if (isK1 = true && height > 1856){
+            if (getDeviceName().equals("SUNMI K2")){
                 kPrinterPresenter.setAlign(1);
                 kPrinterPresenter.text("BarCode\n");
                 kPrinterPresenter.text("--------------------------------\n");
@@ -195,12 +196,13 @@ public class BarCodeActivity extends BaseActivity {
                 TectoySunmiPrint.getInstance().printBarCode(text, encode, height, width, position);
             }
         }else {
-            if (isK1 = true && height > 1856){
+            if (getDeviceName().equals("SUNMI K2")){
                 kPrinterPresenter.setAlign(1);
                 kPrinterPresenter.text("BarCode\n");
                 kPrinterPresenter.text("--------------------------------\n");
                 kPrinterPresenter.printBarcode(text, encode, height, height, position);
-                kPrinterPresenter.cutpaper(KTectoySunmiPrinter.HALF_CUTTING, 10);
+                kPrinterPresenter.print3Line();
+                kPrinterPresenter.cutpaper(KTectoySunmiPrinter.CUTTING_PAPER_FEED, 10);
             }else {
                 TectoySunmiPrint.getInstance().setAlign(TectoySunmiPrint.Alignment_CENTER);
                 TectoySunmiPrint.getInstance().printText("BarCode\n");
@@ -279,6 +281,7 @@ public class BarCodeActivity extends BaseActivity {
         }
         return false;
     }
+
     private void connectKPrintService() {
         Intent intent = new Intent();
         intent.setPackage("com.sunmi.extprinterservice");
@@ -298,4 +301,34 @@ public class BarCodeActivity extends BaseActivity {
             kPrinterPresenter = new KTectoySunmiPrinter(BarCodeActivity.this, extPrinterService);
         }
     };
+    public static String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        }
+        return capitalize(manufacturer) + " " + model;
+    }
+    private static String capitalize(String str) {
+        if (TextUtils.isEmpty(str)) {
+            return str;
+        }
+        char[] arr = str.toCharArray();
+        boolean capitalizeNext = true;
+
+        StringBuilder phrase = new StringBuilder();
+        for (char c : arr) {
+            if (capitalizeNext && Character.isLetter(c)) {
+                phrase.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+                continue;
+            } else if (Character.isWhitespace(c)) {
+                capitalizeNext = true;
+            }
+            phrase.append(c);
+        }
+
+        return phrase.toString();
+    }
+
 }

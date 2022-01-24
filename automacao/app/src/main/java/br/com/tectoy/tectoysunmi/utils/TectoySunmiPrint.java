@@ -889,7 +889,54 @@ public class TectoySunmiPrint {
     /**
      * Usado para relatar o status da consulta em tempo real da impressora, pode ser usado antes de cada
      * impressão
+     * @return
      */
+    public String statusPrinter(Context context){
+        if(sunmiPrinterService == null){
+            //TODO Service disconnection processing
+        }
+        String result = "Interface é muito baixa para implementar ";
+        try {
+            int res = sunmiPrinterService.updatePrinterState();
+            switch (res){
+                case 1:
+                    result = "Impressora está funcionando";
+                    break;
+                case 2:
+                    result = "Impressora encontrada, mas ainda inicializando";
+                    break;
+                case 3:
+                    result = "Interface de hardware da impressora é anormal e precisa ser reimpressa";
+                    break;
+                case 4:
+                    result = "Impressora está sem papel";
+                    break;
+                case 5:
+                    result = "Impressora está superaquecendo";
+                    break;
+                case 6:
+                    result = "A tampa da impressora não está fechada";
+                    break;
+                case 7:
+                    result = "Corte da impressora esta com falha";
+                    break;
+                case 8:
+                    result = "Cortador da impressora é normal";
+                    break;
+                case 9:
+                    result = "Não encontrado papel de marca preta";
+                    break;
+                case 505:
+                    result = "Impressora não existe";
+                    break;
+                default:
+                    break;
+            }
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
     public void showPrinterStatus(Context context){
         if(sunmiPrinterService == null){
             //TODO Service disconnection processing

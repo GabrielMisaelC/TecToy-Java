@@ -1,10 +1,17 @@
 package br.com.tectoy.tectoysunmi.activity;
 
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.ImageView;
@@ -13,7 +20,10 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
+import com.sunmi.extprinterservice.ExtPrinterService;
+
 import br.com.tectoy.tectoysunmi.R;
+import br.com.tectoy.tectoysunmi.utils.KTectoySunmiPrinter;
 import br.com.tectoy.tectoysunmi.utils.TectoySunmiPrint;
 import sunmi.sunmiui.dialog.DialogCreater;
 import sunmi.sunmiui.dialog.ListDialog;
@@ -28,6 +38,9 @@ public class BitmapActivity extends BaseActivity {
     int mytype;
     int myorientation;
 
+    private ExtPrinterService extPrinterService = null;
+    public static KTectoySunmiPrinter kPrinterPresenter;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,6 +50,10 @@ public class BitmapActivity extends BaseActivity {
         initView();
 
         ll.setVisibility(View.GONE);
+
+        if (getDeviceName().equals("SUNMI K2")){
+            connectKPrintService();
+        }
 
 
     }
@@ -121,21 +138,85 @@ public class BitmapActivity extends BaseActivity {
 
     public void onClick(View view) {
             if(mTextView6.getText().toString() == "Não") {
-                TectoySunmiPrint.getInstance().setAlign(TectoySunmiPrint.Alignment_CENTER);
-                TectoySunmiPrint.getInstance().printText("Imagem\n");
-                TectoySunmiPrint.getInstance().printText("--------------------------------\n");
-                TectoySunmiPrint.getInstance().printBitmap(bitmap);
-                TectoySunmiPrint.getInstance().print3Line();
+                if (getDeviceName().equals("SUNMI K2")){
+                    kPrinterPresenter.setAlign(1);
+                    kPrinterPresenter.text("Imagem\n");
+                    kPrinterPresenter.text("--------------------------------\n");
+                    kPrinterPresenter.printBitmap(bitmap, 0);
+                } else {
+                    TectoySunmiPrint.getInstance().setAlign(TectoySunmiPrint.Alignment_CENTER);
+                    TectoySunmiPrint.getInstance().printText("Imagem\n");
+                    TectoySunmiPrint.getInstance().printText("--------------------------------\n");
+                    TectoySunmiPrint.getInstance().printBitmap(bitmap);
+                    TectoySunmiPrint.getInstance().print3Line();
+                }
 
             }else {
-                TectoySunmiPrint.getInstance().setAlign(TectoySunmiPrint.Alignment_CENTER);
-                TectoySunmiPrint.getInstance().printText("Imagem\n");
-                TectoySunmiPrint.getInstance().printText("--------------------------------\n");
-                TectoySunmiPrint.getInstance().printBitmap(bitmap);
-                TectoySunmiPrint.getInstance().print3Line();
-                TectoySunmiPrint.getInstance().cutpaper();
+                if (getDeviceName().equals("SUNMI K2")){
+                    kPrinterPresenter.setAlign(1);
+                    kPrinterPresenter.text("Imagem\n");
+                    kPrinterPresenter.text("--------------------------------\n");
+                    kPrinterPresenter.printBitmap(bitmap, 0);
+                    kPrinterPresenter.print3Line();
+                    kPrinterPresenter.cutpaper(KTectoySunmiPrinter.CUTTING_PAPER_FEED, 10);
+                }else {
+                    TectoySunmiPrint.getInstance().setAlign(TectoySunmiPrint.Alignment_CENTER);
+                    TectoySunmiPrint.getInstance().printText("Imagem\n");
+                    TectoySunmiPrint.getInstance().printText("--------------------------------\n");
+                    TectoySunmiPrint.getInstance().printBitmap(bitmap);
+                    TectoySunmiPrint.getInstance().print3Line();
+                    TectoySunmiPrint.getInstance().cutpaper();
+                }
             }
-        }
     }
+    public static String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        }
+        return capitalize(manufacturer) + " " + model;
+    }
+    private static String capitalize(String str) {
+        if (TextUtils.isEmpty(str)) {
+            return str;
+        }
+        char[] arr = str.toCharArray();
+        boolean capitalizeNext = true;
+
+        StringBuilder phrase = new StringBuilder();
+        for (char c : arr) {
+            if (capitalizeNext && Character.isLetter(c)) {
+                phrase.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+                continue;
+            } else if (Character.isWhitespace(c)) {
+                capitalizeNext = true;
+            }
+            phrase.append(c);
+        }
+
+        return phrase.toString();
+    }
+    private void connectKPrintService() {
+        Intent intent = new Intent();
+        intent.setPackage("com.sunmi.extprinterservice");
+        intent.setAction("com.sunmi.extprinterservice.PrinterService");
+        bindService(intent, connService, Context.BIND_AUTO_CREATE);
+    }
+    private ServiceConnection connService = new ServiceConnection() {
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            extPrinterService = null;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            extPrinterService = ExtPrinterService.Stub.asInterface(service);
+            kPrinterPresenter = new KTectoySunmiPrinter(BitmapActivity.this, extPrinterService);
+        }
+    };
+}
 
 

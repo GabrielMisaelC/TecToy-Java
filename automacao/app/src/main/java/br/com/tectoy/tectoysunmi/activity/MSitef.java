@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -73,7 +74,7 @@ public class MSitef extends BaseActivity {
     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("pos7api://pos7"));
 
     Venda venda = new Venda();
-    String teste;
+    String teste = "Não Definido";
 
     private TectoySunmiPrint tectoySunmiPrint;
     private Random r = new Random();
@@ -105,6 +106,7 @@ public class MSitef extends BaseActivity {
         chc_usb = findViewById(R.id.chc_USB);
         edt_valor = findViewById(R.id.txtValorOperacao);
         edt_ip = findViewById(R.id.edt_ip);
+        edt_ip.setText("172.17.102.96");
         edt_parcelas = findViewById(R.id.edt_parcelas);
         btn_pagar = findViewById(R.id.btnPagar);
         btn_adm = findViewById(R.id.btnAdministrativo);
@@ -125,6 +127,7 @@ public class MSitef extends BaseActivity {
                         teste = mStrings[position];
                         listDialog.cancel();
                         System.out.println(edt_tipo);
+                        Log.d("Tipo", edt_tipo.toString());
                         System.out.println("teste");
                     }
                 });
@@ -142,6 +145,7 @@ public class MSitef extends BaseActivity {
             @Override
             public void onClick(View view) {
                 acao = "venda";
+                        edt_ip = findViewById(R.id.edt_ip);
                         execulteSTefVenda();
             }
         });
@@ -159,7 +163,7 @@ public class MSitef extends BaseActivity {
         private void execulteSTefVenda() {
             Intent intentSitef = new Intent("br.com.softwareexpress.sitef.msitef.ACTIVITY_CLISITEF");
             intentSitef.putExtra("empresaSitef", "00000000");
-            intentSitef.putExtra("enderecoSitef", "172.17.102.96");
+            intentSitef.putExtra("enderecoSitef", edt_ip.getText().toString());
             intentSitef.putExtra("operador", "0001");
             intentSitef.putExtra("data", "20200324");
             intentSitef.putExtra("hora", "130358");
@@ -193,7 +197,7 @@ public class MSitef extends BaseActivity {
     private void execulteSTefCancelamento() {
         Intent intentSitef = new Intent("br.com.softwareexpress.sitef.msitef.ACTIVITY_CLISITEF");
         intentSitef.putExtra("empresaSitef", "00000000");
-        intentSitef.putExtra("enderecoSitef", "172.17.102.96");
+        intentSitef.putExtra("enderecoSitef", edt_ip.getText().toString());
         intentSitef.putExtra("operador", "0001");
         intentSitef.putExtra("data", currentDateTimeString);
         intentSitef.putExtra("hora", currentDateTimeStringT);
@@ -210,7 +214,7 @@ public class MSitef extends BaseActivity {
         Intent intentSitef = new Intent("br.com.softwareexpress.sitef.msitef.ACTIVITY_CLISITEF");
 
         intentSitef.putExtra("empresaSitef", "00000000");
-        intentSitef.putExtra("enderecoSitef", "172.17.102.96");
+        intentSitef.putExtra("enderecoSitef", edt_ip.getText().toString());
         intentSitef.putExtra("operador", "0001");
         intentSitef.putExtra("data", currentDateTimeString);
         intentSitef.putExtra("hora", currentDateTimeStringT);
@@ -227,7 +231,7 @@ public class MSitef extends BaseActivity {
     private void execulteSTefReimpressao() {
         Intent intentSitef = new Intent("br.com.softwareexpress.sitef.msitef.ACTIVITY_CLISITEF");
         intentSitef.putExtra("empresaSitef", "00000000");
-        intentSitef.putExtra("enderecoSitef", "172.17.102.96");
+        intentSitef.putExtra("enderecoSitef", edt_ip.getText().toString());
         intentSitef.putExtra("operador", "0001");
         intentSitef.putExtra("data", "20200324");
         intentSitef.putExtra("hora", "130358");

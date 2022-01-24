@@ -66,7 +66,13 @@ public class ESCUtil {
 		}
 		return buffer.toByteArray();
 	}
-
+	public static byte[] feedPaper(int lines) {
+		byte[] result = new byte[3];
+		result[0] = ESC;
+		result[1] = 0x64;
+		result[2] = (byte) lines ;
+		return result;
+	}
 	/**
 	 * Dois códigos QR horizontalmente sunmi Instrução personalizada
 	 * @param code1:        Dados de código QR
